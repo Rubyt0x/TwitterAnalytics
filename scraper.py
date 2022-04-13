@@ -1,22 +1,82 @@
-from twitter_keys import consumer_key, consumer_secret, access_token, access_secret
+from colorama import Cursor
+from twitter_keys import consumer_key, consumer_secret, access_token, access_token_secret
 import tweepy
-import csv
-import pytz
-import requests
-from bs4 import BeautifulSoup
+import pandas as pd
 
 auth = tweepy.OAuthHandler(consumer_key,consumer_secret)
-auth.set_access_token(access_token,access_secret)
+auth.set_access_token(access_token,access_token_secret)
 
 api = tweepy.API(auth)
 
-#access to my tweets
-my_tweets = api.home_timeline()
+def get_twitter_client():
+    client = tweepy.API(auth, wait_on_rate_limit=True)
+    return client
+
+def get_tweets_from_user(twitter_username, page_limit = 16, count_tweet = 200):
+    client = get_twitter_client()
+    all_tweets = []
+
+    for page in tweepy.Cursor(client.user_timeline, screen_name = twitter_username, count = count_tweet).pages(page_limit):
+        for tweet in page:
+            parsed_tweet = {}
+            parsed_tweet['date'] = tweet.created_at
+            parsed_tweet['author'] = tweet.user.name
+            parsed_tweet['twitter_name'] = tweet.user.screen_name
+            parsed_tweet['text'] = tweet.text
+            parsed_tweet['likes'] = tweet.favorite_count
+            parsed_tweet['retweets'] = tweet.retweet_count
+
+            all_tweets.append(parsed_tweet)
+    
+    df = pd.DataFrame(all_tweets)
+    df = df.drop_duplicates("text", keep = 'first')
+
+    return df
+            
+Fuel = get_tweets_from_user("fuellabs_")
+
+print("Data Shape: {}".format(Fuel.shape))
+
+Fuel.to_csv('Fuel_tweets.csv', encoding='UTF-8', sep = ',')
+
+
+
+
+
+
+
+
+"""my_tweets = api.user_timeline()
+
+columns = ['Time', 'User', 'Tweet', 'Likes', 'Retweets']
+data = []
+for tweet in my_tweets:
+    data.append([tweet.created_at, tweet.user.screen_name, tweet.text, tweet.favorite_count, tweet.retweet_count])
+
+df = pd.DataFrame(data, columns = columns)
+
+df.to_csv('April_results.csv')"""
+
+
+
+
+
+"""#access to my tweets
+my_tweets = api.user_timeline()
 
 # Setting up the timezone
 lisbon = pytz.timezone('Europe/Lisbon')
 
 class MyStreamListener(tweepy.StreamListener):
+
+    def __init__(self, api=None):
+        pass
+
+    def stream_tweets(self, filename):
+        listener = StdOutListener(filename)
+        stream(auth, listener)
+
+
     def on_status(self, status):
 
         #If the tweet is a retweet
@@ -119,5 +179,4 @@ class MyStreamListener(tweepy.StreamListener):
 
 myStreamListener = MyStreamListener()
 myStream = tweepy.Stream(auth = api.auth, listener = myStreamListener)
-
-myStream.filter(track = ['python'])
+"""
